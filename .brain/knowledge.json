@@ -1,0 +1,55 @@
+{
+  "decisions": [
+    {
+      "date": "2026-04-28",
+      "decision": "Default video quality set to 1080p (good) instead of best",
+      "reason": "1080p is the sweet spot for most use cases; saves bandwidth while maintaining quality"
+    },
+    {
+      "date": "2026-04-28",
+      "decision": "Force MP4 output container for all video downloads",
+      "reason": "Consistent format; MP4 is universally compatible. Added --merge-output-format mp4 and --remux-video mp4"
+    },
+    {
+      "date": "2026-04-28",
+      "decision": "Per-entry quality selection for playlist downloads",
+      "reason": "Each video in a playlist may have different available qualities; users need granular control"
+    }
+  ],
+  "patterns": [
+    {
+      "name": "Format Preference Pipeline",
+      "description": "buildVideoFormatPreference(WebDownloadSettings) -> yt-dlp format string. Uses height caps: best=null, good=1080, normal=720, bad=480, worst=360"
+    },
+    {
+      "name": "Per-Entry Format Override",
+      "description": "perEntryFormats map in playlist download allows overriding the global format for specific videos. Key=entryId, Value=yt-dlp format string"
+    }
+  ],
+  "gotchas": [
+    {
+      "issue": "buildVideoFormatPreference takes WebDownloadSettings object, NOT raw string args",
+      "fix": "Pass full settings object, spread with override for per-entry: { ...settings, oneClickQuality: preset }"
+    },
+    {
+      "issue": "Hydration mismatch on ON/OFF badge in download-dialog-layout.tsx",
+      "fix": "Add suppressHydrationWarning to the span element - state depends on localStorage which differs SSR vs client"
+    },
+    {
+      "issue": "FormatList import from single-video-download was removed but references remained in playlist-download",
+      "fix": "Replaced with simple Select dropdown showing concrete resolutions (Best 4K+, 1080p, 720p, etc.)"
+    },
+    {
+      "issue": "Cannot find module errors for @vidbee/* and node:* in IDE",
+      "fix": "These are monorepo path mapping issues in the IDE's TypeScript server. Runtime works fine in Docker. Not blocking."
+    }
+  ],
+  "conventions": {
+    "commit_format": "type(scope): subject (Conventional Commits)",
+    "package_manager": "pnpm",
+    "code_check": "pnpm run check",
+    "i18n_check": "pnpm run check:i18n",
+    "comments_language": "English",
+    "docker_build": "docker compose up -d --build api web"
+  }
+}

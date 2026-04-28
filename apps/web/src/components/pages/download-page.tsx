@@ -20,7 +20,7 @@ import {
 } from "@vidbee/ui/components/ui/download-filter-bar";
 import { ScrollArea } from "@vidbee/ui/components/ui/scroll-area";
 import { cn } from "@vidbee/ui/lib/cn";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { eventsUrl, orpcClient } from "../../lib/orpc-client";
@@ -77,6 +77,7 @@ export const DownloadPage = () => {
 	const alsoDeleteFilesId = useId();
 	const [isApiReachable, setIsApiReachable] = useState(false);
 	const [apiConnectionMessage, setApiConnectionMessage] = useState("");
+	const autoDownloadedIds = useRef<Set<string>>(new Set());
 
 	const refreshData = useCallback(async () => {
 		try {
@@ -142,12 +143,54 @@ export const DownloadPage = () => {
 			source.close();
 		};
 
-		source.addEventListener("task-updated", onChanged);
+		const onTaskUpdated = (event: MessageEvent) => {
+			try {
+				const data = JSON.parse(event.data);
+				if (
+					data.task &&
+					data.task.status === "completed" &&
+					data.task.id &&
+					!autoDownloadedIds.current.has(data.task.id)
+				) {
+					const task = data.task;
+					autoDownloadedIds.current.add(task.id);
+					const fallbackPath = readWebSettings().downloadPath.trim();
+					const downloadPath = task.downloadPath?.trim() || fallbackPath;
+					const extension = resolveDownloadExtension(task as DownloadRecord);
+					const candidates = buildFilePathCandidates(
+						downloadPath,
+						task.title,
+						extension,
+						task.savedFileName,
+					);
+					const findAndDownload = async () => {
+						let existingPath: string | null = null;
+						for (const candidate of candidates) {
+							try {
+								const exists = await orpcClient.files.exists({ path: candidate });
+								if (exists.exists) {
+									existingPath = candidate;
+									break;
+								}
+							} catch {}
+						}
+						if (existingPath) {
+							const url = `/files/download?path=${encodeURIComponent(existingPath)}`;
+							window.location.assign(url);
+						}
+					};
+					void findAndDownload();
+				}
+			} catch (e) {}
+			void refreshData();
+		};
+
+		source.addEventListener("task-updated", onTaskUpdated);
 		source.addEventListener("queue-updated", onChanged);
 		source.addEventListener("error", onError);
 
 		return () => {
-			source.removeEventListener("task-updated", onChanged);
+			source.removeEventListener("task-updated", onTaskUpdated);
 			source.removeEventListener("queue-updated", onChanged);
 			source.removeEventListener("error", onError);
 			source.close();
@@ -595,7 +638,6 @@ export const DownloadPage = () => {
 			<div className={cn("flex h-full flex-col")}>
 				<CardHeader className="z-50 gap-4 bg-background p-0 px-6 py-4 backdrop-blur">
 					<DownloadFilterBar
-						actions={<DownloadDialog onDownloadsChanged={refreshData} />}
 						activeFilter={statusFilter}
 						filters={filters}
 						onFilterChange={setStatusFilter}
@@ -608,7 +650,11 @@ export const DownloadPage = () => {
 				</CardHeader>
 
 				<ScrollArea className="flex-1 overflow-y-auto">
-					<CardContent className="w-full space-y-3 overflow-x-hidden p-0">
+					<CardContent className="w-full space-y-4 overflow-x-hidden p-0">
+						<div className="mx-6 mt-4">
+							<DownloadDialog onDownloadsChanged={refreshData} />
+						</div>
+
 						{filteredRecords.length === 0 ? (
 							<DownloadEmptyState
 								className="mx-6 mb-4"

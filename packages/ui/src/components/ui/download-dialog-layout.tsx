@@ -41,12 +41,13 @@ export const DownloadDialogLayout = ({
 }: DownloadDialogLayoutProps) => {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <div className="flex items-center gap-4">
+      <div className="flex w-full items-center gap-3">
+        {addUrlPopover}
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="relative">
               <Button
-                className="rounded-full"
+                className="rounded-full shrink-0"
                 onClick={onToggleOneClickDownload}
                 size="icon"
                 variant="ghost"
@@ -54,7 +55,8 @@ export const DownloadDialogLayout = ({
                 <Rocket className="h-4 w-4 text-muted-foreground" />
               </Button>
               <span
-                className={`absolute top-0 -right-2 inline-flex h-3.5 items-center justify-center whitespace-nowrap rounded-full px-1 font-semibold text-xs leading-none ${oneClickDownloadEnabled ? 'bg-being-green-400 text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
+                className={`absolute top-0 -right-2 inline-flex h-3.5 items-center justify-center whitespace-nowrap rounded-full px-1 font-semibold text-[10px] leading-none ${oneClickDownloadEnabled ? 'bg-green-500 text-white' : 'bg-secondary text-secondary-foreground'}`}
+                suppressHydrationWarning
               >
                 {oneClickDownloadEnabled ? 'ON' : 'OFF'}
               </span>
@@ -64,7 +66,6 @@ export const DownloadDialogLayout = ({
             {oneClickTooltip}
           </TooltipContent>
         </Tooltip>
-        {addUrlPopover}
       </div>
       <DialogContent
         className={cn(

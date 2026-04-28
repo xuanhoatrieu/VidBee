@@ -52,7 +52,7 @@ export const defaultWebSettings: WebAppSettings = {
 	theme: "system",
 	oneClickDownload: true,
 	oneClickDownloadType: "video",
-	oneClickQuality: "best",
+	oneClickQuality: "good",
 	closeToTray: true,
 	autoUpdate: true,
 	subscriptionOnlyLatestDefault: true,

@@ -487,7 +487,7 @@ const cloneTask = (task: DownloadTask): DownloadTask => ({
 })
 
 export class DownloaderCore extends EventEmitter {
-  private readonly maxConcurrent: number
+  private maxConcurrent: number
   private readonly downloadDir: string
   private readonly defaultRuntimeSettings: DownloadRuntimeSettings
   private readonly jsRuntimeArgs: string[]
@@ -722,7 +722,7 @@ export class DownloaderCore extends EventEmitter {
         playlistTitle: playlist.title,
         playlistIndex: entry.index,
         playlistSize: selectedEntries.length,
-        format: input.format,
+        format: input.perEntryFormats?.[entry.id] ?? input.format,
         audioFormat: input.audioFormat,
         audioFormatIds: input.audioFormatIds,
         customDownloadPath: input.customDownloadPath,
@@ -1058,5 +1058,16 @@ export class DownloaderCore extends EventEmitter {
 
   getStatus(): { active: number; pending: number } {
     return { active: this.active.size, pending: this.pending.length }
+  }
+
+  getMaxConcurrent(): number {
+    return this.maxConcurrent
+  }
+
+  setMaxConcurrent(limit: number): void {
+    if (typeof limit === 'number' && !Number.isNaN(limit) && limit > 0) {
+      this.maxConcurrent = Math.max(Math.floor(limit), 1)
+      this.processQueue()
+    }
   }
 }

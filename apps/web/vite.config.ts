@@ -27,17 +27,22 @@ const config = defineConfig({
 		viteReact(),
 	],
 	server: {
+		allowedHosts: ["video.hoclieu.id.vn"],
 		proxy: {
 			"/events": {
-				target: "http://localhost:3100",
+				target: process.env.VITE_PROXY_TARGET || "http://localhost:3100",
 				changeOrigin: true,
 			},
 			"/rpc": {
-				target: "http://localhost:3100",
+				target: process.env.VITE_PROXY_TARGET || "http://localhost:3100",
 				changeOrigin: true,
 			},
 			"/images": {
-				target: "http://localhost:3100",
+				target: process.env.VITE_PROXY_TARGET || "http://localhost:3100",
+				changeOrigin: true,
+			},
+			"/files": {
+				target: process.env.VITE_PROXY_TARGET || "http://localhost:3100",
 				changeOrigin: true,
 			},
 		},

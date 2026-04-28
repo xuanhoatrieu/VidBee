@@ -147,6 +147,7 @@ export interface PlaylistDownloadInput {
   url: string
   type: DownloadType
   format?: string
+  perEntryFormats?: Record<string, string>
   audioFormat?: string
   audioFormatIds?: string[]
   customDownloadPath?: string

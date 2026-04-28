@@ -1,4 +1,5 @@
 import type { PlaylistInfo } from "@vidbee/downloader-core";
+import type { OneClickQualityPreset } from "@vidbee/downloader-core/format-preferences";
 import { Checkbox } from "@vidbee/ui/components/ui/checkbox";
 import { Input } from "@vidbee/ui/components/ui/input";
 import { Label } from "@vidbee/ui/components/ui/label";
@@ -27,10 +28,16 @@ interface PlaylistDownloadProps {
 	startIndex: string;
 	endIndex: string;
 	advancedOptionsOpen: boolean;
+	qualityPreset: OneClickQualityPreset;
+	perEntryQuality: Record<string, string>;
+	maxConcurrentDownloads: number;
 	setSelectedEntryIds: Dispatch<SetStateAction<Set<string>>>;
 	setStartIndex: Dispatch<SetStateAction<string>>;
 	setEndIndex: Dispatch<SetStateAction<string>>;
 	setDownloadType: Dispatch<SetStateAction<"video" | "audio">>;
+	setQualityPreset: Dispatch<SetStateAction<OneClickQualityPreset>>;
+	setPerEntryQuality: Dispatch<SetStateAction<Record<string, string>>>;
+	setMaxConcurrentDownloads: (value: number) => void;
 }
 
 export function PlaylistDownload({
@@ -45,10 +52,16 @@ export function PlaylistDownload({
 	startIndex,
 	endIndex,
 	advancedOptionsOpen,
+	qualityPreset,
+	perEntryQuality,
+	maxConcurrentDownloads,
 	setSelectedEntryIds,
 	setStartIndex,
 	setEndIndex,
 	setDownloadType,
+	setQualityPreset,
+	setPerEntryQuality,
+	setMaxConcurrentDownloads,
 }: PlaylistDownloadProps) {
 	const { t } = useTranslation();
 
@@ -130,55 +143,81 @@ export function PlaylistDownload({
 								};
 
 								return (
-									<button
-										aria-label={t("playlist.selectEntry", {
-											index: entry.index,
-										})}
+									<div
 										className={cn(
-											"flex w-full cursor-pointer items-center gap-3 rounded px-2.5 py-1.5 text-left transition-colors",
+											"flex w-full items-center gap-3 rounded px-2.5 py-1.5 transition-colors",
 											isSelected || isInRange
 												? "bg-primary/10"
 												: "hover:bg-muted/50",
 										)}
 										key={entry.id}
-										onClick={handleToggle}
-										onKeyDown={(event) => {
-											if (event.key === "Enter" || event.key === " ") {
-												event.preventDefault();
-												handleToggle();
-											}
-										}}
-										type="button"
 									>
-										<Checkbox
-											checked={isSelected || isInRange}
-											className="shrink-0"
-											onCheckedChange={(checked) => {
-												setSelectedEntryIds((prev) => {
-													const next = new Set(prev);
-													if (checked) {
-														next.add(entry.id);
-													} else {
-														next.delete(entry.id);
+										<button
+											aria-label={t("playlist.selectEntry", {
+												index: entry.index,
+											})}
+											className="flex flex-1 items-center gap-3"
+											onClick={handleToggle}
+											type="button"
+										>
+											<Checkbox
+												checked={isSelected || isInRange}
+												className="shrink-0"
+												onCheckedChange={(checked) => {
+													setSelectedEntryIds((prev) => {
+														const next = new Set(prev);
+														if (checked) {
+															next.add(entry.id);
+														} else {
+															next.delete(entry.id);
+														}
+														return next;
+													});
+													if (selectedEntryIds.size === 0) {
+														setStartIndex("1");
+														setEndIndex("");
 													}
-													return next;
-												});
-												if (selectedEntryIds.size === 0) {
-													setStartIndex("1");
-													setEndIndex("");
-												}
-											}}
-											onClick={(event) => event.stopPropagation()}
-										/>
-										<div className="w-8 shrink-0 font-medium text-muted-foreground/70 text-xs tabular-nums">
-											#{entry.index}
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="line-clamp-1 font-medium text-xs leading-tight">
-												{entry.title || t("download.fetchingVideoInfo")}
-											</p>
-										</div>
-									</button>
+												}}
+												onClick={(event) => event.stopPropagation()}
+											/>
+											<div className="w-8 shrink-0 font-medium text-muted-foreground/70 text-xs tabular-nums">
+												#{entry.index}
+											</div>
+											<div className="min-w-0 flex-1">
+												<p className="line-clamp-1 font-medium text-xs leading-tight">
+													{entry.title || t("download.fetchingVideoInfo")}
+												</p>
+											</div>
+										</button>
+										{downloadType === "video" && (
+											<Select
+												onValueChange={(val) => {
+													setPerEntryQuality((prev) => {
+														const next = { ...prev };
+														if (val === "global") {
+															delete next[entry.id];
+														} else {
+															next[entry.id] = val;
+														}
+														return next;
+													});
+												}}
+												value={perEntryQuality[entry.id] || "global"}
+											>
+												<SelectTrigger className="h-7 w-[120px] text-xs">
+													<SelectValue placeholder="Global" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="global">Global Default</SelectItem>
+													<SelectItem value="best">Best (4K+)</SelectItem>
+													<SelectItem value="good">1080p</SelectItem>
+													<SelectItem value="normal">720p</SelectItem>
+													<SelectItem value="bad">480p</SelectItem>
+													<SelectItem value="worst">360p</SelectItem>
+												</SelectContent>
+											</Select>
+										)}
+									</div>
 								);
 							})}
 						</div>
@@ -201,7 +240,7 @@ export function PlaylistDownload({
 							)}
 						>
 							<div className="w-full border-t pt-3">
-								<div className="space-y-3">
+								<div className="space-y-4">
 									<div className="grid grid-cols-2 gap-3">
 										<div className="space-y-1.5">
 											<Label
@@ -267,6 +306,51 @@ export function PlaylistDownload({
 													value={endIndex}
 												/>
 											</div>
+										</div>
+
+										<div className="flex flex-col gap-3">
+											<Label className="px-0.5 font-medium text-muted-foreground text-xs">
+												{t("download.metadata.format")}
+											</Label>
+											{downloadType === "video" && (
+												<Select
+													onValueChange={(val) =>
+														setQualityPreset(val as OneClickQualityPreset)
+													}
+													value={qualityPreset}
+												>
+													<SelectTrigger className="h-8 text-xs">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+									<SelectItem value="best">Best (4K+)</SelectItem>
+									<SelectItem value="good">1080p</SelectItem>
+									<SelectItem value="normal">720p</SelectItem>
+									<SelectItem value="bad">480p</SelectItem>
+									<SelectItem value="worst">360p</SelectItem>
+								</SelectContent>
+												</Select>
+											)}
+										</div>
+
+										<div className="space-y-1.5">
+											<Label className="font-medium text-muted-foreground text-xs">
+												{t("settings.maxConcurrentDownloads")}
+											</Label>
+											<Input
+												className="h-8 text-xs"
+												disabled={playlistBusy}
+												max={10}
+												min={1}
+												onChange={(e) => {
+													const val = Number.parseInt(e.target.value, 10);
+													if (!Number.isNaN(val) && val >= 1 && val <= 10) {
+														setMaxConcurrentDownloads(val);
+													}
+												}}
+												type="number"
+												value={maxConcurrentDownloads}
+											/>
 										</div>
 									</div>
 								</div>

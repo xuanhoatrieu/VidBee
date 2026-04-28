@@ -1,0 +1,46 @@
+{
+  "working_on": null,
+  "pending_tasks": [],
+  "recent_changes": [
+    {
+      "date": "2026-04-28",
+      "type": "feat",
+      "description": "Per-entry quality selection for playlist downloads with concrete resolution labels"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "fix",
+      "description": "Default quality changed to 1080p (good) from best"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "feat",
+      "description": "Force MP4 output container for all video downloads"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "fix",
+      "description": "Fixed hydration mismatch on ON/OFF badge (suppressHydrationWarning)"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "fix",
+      "description": "Fixed broken buildVideoFormatPreference calls (wrong signature)"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "fix",
+      "description": "Removed stale firstVideoInfo reference causing ReferenceError crash"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "feat",
+      "description": "URL input + Fetch button visible above download list"
+    },
+    {
+      "date": "2026-04-28",
+      "type": "chore",
+      "description": "Data cleanup - verified download files properly deleted"
+    }
+  ]
+}

@@ -462,6 +462,7 @@ export const rpcRouter = os.router({
     set: os.settings.set.handler(async ({ input }) => {
       try {
         const settings = await webSettingsStore.set(input.settings)
+        downloaderCore.setMaxConcurrent(settings.maxConcurrentDownloads)
         return { settings }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {

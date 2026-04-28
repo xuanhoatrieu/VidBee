@@ -107,7 +107,7 @@ const filterFormatsByType = (
 	});
 };
 
-interface FormatListProps {
+export interface FormatListProps {
 	formats: VideoFormat[];
 	type: "video" | "audio";
 	codec?: string;
@@ -116,7 +116,7 @@ interface FormatListProps {
 	oneClickQuality: OneClickQualityPreset;
 }
 
-const FormatList = ({
+export const FormatList = ({
 	formats,
 	type,
 	codec,

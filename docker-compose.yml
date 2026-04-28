@@ -30,6 +30,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    environment:
+      VITE_PROXY_TARGET: "http://api:${VIDBEE_API_PORT:-3100}"
     ports:
       - "${VIDBEE_WEB_PORT:-3000}:3000"
     restart: unless-stopped

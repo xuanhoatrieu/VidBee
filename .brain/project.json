@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "project_name": "VidBee",
+    "description": "Self-hosted video downloader with web UI, based on yt-dlp",
+    "forked_from": "nexmoe/VidBee",
+    "last_saved": "2026-04-28T06:20:00Z",
+    "save_count": 1
+  },
+  "infrastructure": {
+    "deployment": "Docker Compose (self-hosted)",
+    "services": {
+      "api": {
+        "port": 13854,
+        "description": "Backend API server (Hono + oRPC)",
+        "docker_image": "vidbee-api"
+      },
+      "web": {
+        "port": 13853,
+        "description": "Frontend web UI (TanStack Start + Vite)",
+        "docker_image": "vidbee-web"
+      }
+    },
+    "volumes": {
+      "downloads": "/data/downloads",
+      "database": "/data/db"
+    },
+    "notes": "API healthcheck on /health endpoint; web depends on api healthy state"
+  },
+  "github": {
+    "upstream": "https://github.com/nexmoe/VidBee",
+    "fork": "https://github.com/xuanhoatrieu/VidBee",
+    "branch": "main",
+    "custom_branch": "custom/my-changes"
+  },
+  "tech_stack": {
+    "monorepo": "pnpm workspaces",
+    "frontend": "React 19 + TanStack Start + TanStack Router + Vite",
+    "backend": "Hono + oRPC",
+    "database": "SQLite (Drizzle ORM)",
+    "downloader": "yt-dlp (spawned as child process)",
+    "ui_library": "shadcn/ui + Radix UI",
+    "i18n": "react-i18next",
+    "styling": "Tailwind CSS",
+    "containerization": "Docker + Docker Compose"
+  }
+}

@@ -3,7 +3,6 @@ import type {
 	VideoFormat,
 	VideoInfo,
 } from "@vidbee/downloader-core";
-import { AddUrlPopover } from "@vidbee/ui/components/ui/add-url-popover";
 import { Button } from "@vidbee/ui/components/ui/button";
 import { Checkbox } from "@vidbee/ui/components/ui/checkbox";
 import { DownloadDialogLayout } from "@vidbee/ui/components/ui/download-dialog-layout";
@@ -13,7 +12,7 @@ import { useAddUrlInteraction } from "@vidbee/ui/lib/use-add-url-interaction";
 import { useAddUrlShortcut } from "@vidbee/ui/lib/use-add-url-shortcut";
 import { FolderOpen, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useWebDownloadSettings } from "../../hooks/use-web-download-settings";
 import {
@@ -98,6 +97,7 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 	const downloadTypeId = useId();
 	const advancedOptionsId = useId();
 	const [playlistUrl, setPlaylistUrl] = useState("");
+	const [perEntryQuality, setPerEntryQuality] = useState<Record<string, any>>({});
 	const [downloadType, setDownloadType] = useState<"video" | "audio">("video");
 	const [startIndex, setStartIndex] = useState("1");
 	const [endIndex, setEndIndex] = useState("");
@@ -400,6 +400,25 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 
 		setPlaylistPreviewError(null);
 		setPlaylistDownloadLoading(true);
+
+		let formatString: string | undefined;
+
+		if (downloadType === "video") {
+			formatString = buildVideoFormatPreference(settings);
+		} else {
+			formatString = buildAudioFormatPreference(settings);
+		}
+
+		const perEntryFormats: Record<string, string> = {};
+		if (downloadType === "video") {
+			for (const [entryId, preset] of Object.entries(perEntryQuality)) {
+				perEntryFormats[entryId] = buildVideoFormatPreference({
+					...settings,
+					oneClickQuality: preset,
+				});
+			}
+		}
+
 		try {
 			let start: number | undefined;
 			let end: number | undefined;
@@ -434,19 +453,15 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 				end = range.end;
 			}
 
-			const format =
-				downloadType === "video"
-					? buildVideoFormatPreference(settings)
-					: buildAudioFormatPreference(settings);
-
 			const result = await orpcClient.playlist.download({
 				url: trimmedUrl,
 				type: downloadType,
-				format,
+				format: formatString,
+				perEntryFormats,
+				entryIds,
 				audioFormat: downloadType === "audio" ? "mp3" : undefined,
 				startIndex: start,
 				endIndex: end,
-				entryIds,
 				settings: readOrpcDownloadSettings(),
 			});
 
@@ -581,39 +596,38 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 		<DownloadDialogLayout
 			activeTab={activeTab}
 			addUrlPopover={
-				<AddUrlPopover
-					cancelLabel={t("download.cancel")}
-					confirmDisabled={!canConfirmAddUrl}
-					confirmLabel={t("download.fetch")}
-					invalidMessage={
-						hasAddUrlValue && !canConfirmAddUrl
-							? t("errors.invalidUrl")
-							: undefined
-					}
-					onCancel={() => {
-						setAddUrlPopoverOpen(false);
-					}}
-					onConfirm={() => {
-						void handleConfirmAddUrl();
-					}}
-					onOpenChange={setAddUrlPopoverOpen}
-					onTriggerClick={() => {
-						void handleOpenAddUrlPopover();
-					}}
-					onValueChange={setAddUrlValue}
-					open={addUrlPopoverOpen}
-					placeholder={t("download.urlPlaceholder")}
-					title={t("download.enterUrl")}
-					triggerLabel={t("download.pasteUrlButton")}
-					value={addUrlValue}
-				/>
+				<div className="flex w-full flex-col items-center justify-center gap-4 rounded-xl border border-border/60 border-dashed px-6 py-8 bg-card/50 text-center transition-colors hover:bg-card/80">
+					<div className="flex w-full items-center gap-2">
+						<Input
+							autoFocus
+							className="h-12 flex-1 rounded-full px-5 text-base shadow-sm"
+							onChange={(e) => setAddUrlValue(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && canConfirmAddUrl) {
+									e.preventDefault();
+									void handleConfirmAddUrl();
+								}
+							}}
+							placeholder={t("download.urlPlaceholder")}
+							value={addUrlValue}
+						/>
+						<Button
+							className="h-12 rounded-full px-8 text-base shadow-sm"
+							disabled={!canConfirmAddUrl}
+							onClick={() => void handleConfirmAddUrl()}
+						>
+							{t("download.fetch")}
+						</Button>
+					</div>
+					<p className="text-sm text-muted-foreground/80 max-w-xl">
+						<Trans i18nKey="download.supportedSitesNote" defaultValue="Hỗ trợ tải video, âm thanh, danh sách phát từ YouTube, Facebook, TikTok, SoundCloud và hàng nghìn trang web khác." />
+					</p>
+				</div>
 			}
 			footer={
 				<div className="flex w-full items-center justify-between gap-3">
 					<div className="flex items-center gap-3">
-						{activeTab === "playlist" &&
-							!playlistInfo &&
-							!playlistPreviewLoading && (
+						{activeTab === "playlist" && (
 								<div className="flex items-center gap-2">
 									<Checkbox
 										checked={advancedOptionsOpen}
@@ -632,7 +646,7 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 							)}
 
 						{activeTab === "single" && !videoInfo && !loading && (
-							<div className="relative w-[320px]">
+							<div className="relative flex-1">
 								<Input
 									className="h-8 pr-8 text-xs"
 									onChange={(event) => setUrl(event.target.value)}
@@ -738,14 +752,24 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 					downloadType={downloadType}
 					downloadTypeId={downloadTypeId}
 					endIndex={endIndex}
+					maxConcurrentDownloads={settings.maxConcurrentDownloads}
+					perEntryQuality={perEntryQuality}
 					playlistBusy={playlistBusy}
 					playlistInfo={playlistInfo}
 					playlistPreviewError={playlistPreviewError}
 					playlistPreviewLoading={playlistPreviewLoading}
+					qualityPreset={settings.oneClickQuality}
 					selectedEntryIds={selectedEntryIds}
 					selectedPlaylistEntries={selectedPlaylistEntries}
 					setDownloadType={setDownloadType}
 					setEndIndex={setEndIndex}
+					setMaxConcurrentDownloads={(value) => {
+						updateSettings({ maxConcurrentDownloads: value });
+					}}
+					setPerEntryQuality={setPerEntryQuality}
+					setQualityPreset={(value) => {
+						updateSettings({ oneClickQuality: value });
+					}}
 					setSelectedEntryIds={setSelectedEntryIds}
 					setStartIndex={setStartIndex}
 					startIndex={startIndex}

@@ -221,6 +221,9 @@ export const buildDownloadArgs = (
     if ((options.audioFormatIds?.length ?? 0) > 0 || formatSelector.includes('mergeall')) {
       args.push('--audio-multistreams')
     }
+    // Always output MP4 container for video downloads
+    args.push('--merge-output-format', 'mp4')
+    args.push('--remux-video', 'mp4')
   } else if (options.type === 'audio') {
     args.push('-f', resolveAudioFormatSelector(options))
   }

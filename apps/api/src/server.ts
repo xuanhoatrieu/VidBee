@@ -8,9 +8,13 @@ import { RPCHandler } from '@orpc/server/fastify'
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
 import type { DownloadTask } from '@vidbee/downloader-core'
 import Fastify from 'fastify'
-import { downloaderCore } from './lib/downloader'
+import { downloaderCore, historyStore } from './lib/downloader'
 import { rpcRouter } from './lib/rpc-router'
 import { SseHub } from './lib/sse'
+import { webSettingsStore } from './lib/web-settings-store'
+import fs from 'node:fs'
+import fsPromises from 'node:fs/promises'
+import path from 'node:path'
 
 const MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_PROXY_REDIRECTS = 5
@@ -105,6 +109,9 @@ const parseRemoteImageUrl = (value: string): URL | null => {
 
 export const createApiServer = async () => {
   await downloaderCore.initialize()
+  const settingsOnBoot = await webSettingsStore.get()
+  downloaderCore.setMaxConcurrent(settingsOnBoot.maxConcurrentDownloads)
+  
   const isDev = process.env.NODE_ENV !== 'production'
 
   const fastify = Fastify({
@@ -145,6 +152,52 @@ export const createApiServer = async () => {
   downloaderCore.on('queue-updated', (downloads: DownloadTask[]) => {
     sseHub.publish('queue-updated', { downloads })
   })
+
+  const runEphemeralCleanup = async () => {
+    fastify.log.info('Running ephemeral cleanup...')
+    try {
+      // 1. Cancel active downloads
+      const activeDownloads = downloaderCore.listDownloads().filter((d) => d.status === 'pending' || d.status === 'downloading' || d.status === 'processing')
+      for (const d of activeDownloads) {
+        await downloaderCore.cancelDownload(d.id).catch(() => {})
+      }
+
+      // 2. Clear history
+      const allHistory = historyStore.list()
+      const allIds = allHistory.map((h) => h.id)
+      historyStore.removeItems(allIds)
+      downloaderCore.removeHistoryItems(allIds)
+
+      // 3. Clear files
+      const settings = await webSettingsStore.get()
+      const downloadDir = settings.downloadPath.trim() || process.env.VIDBEE_DOWNLOAD_DIR?.trim()
+      
+      if (downloadDir) {
+        try {
+          const files = await fsPromises.readdir(downloadDir)
+          for (const file of files) {
+            if (file !== '.vidbee') {
+              await fsPromises.rm(path.join(downloadDir, file), { recursive: true, force: true }).catch(() => {})
+            }
+          }
+          fastify.log.info(`Cleared all files in ${downloadDir}`)
+        } catch (e) {
+          fastify.log.error(`Failed to clear download directory: ${downloadDir}`, e)
+        }
+      }
+      fastify.log.info('Ephemeral cleanup completed.')
+    } catch (err) {
+      fastify.log.error('Ephemeral cleanup failed', err)
+    }
+  }
+
+  sseHub.on('empty', async () => {
+    fastify.log.info('No clients connected for 5 seconds. Triggering cleanup...')
+    await runEphemeralCleanup()
+  })
+
+  // Run cleanup on boot
+  runEphemeralCleanup().catch(() => {})
 
   fastify.get('/health', async () => {
     return { ok: true }
@@ -258,6 +311,47 @@ export const createApiServer = async () => {
     }
 
     return reply.send(imageBuffer)
+  })
+
+  fastify.get<{ Querystring: { path?: string } }>('/files/download', async (request, reply) => {
+    const targetPath = request.query.path?.trim()
+    if (!targetPath) {
+      return reply.code(400).send({ message: 'Missing path parameter.' })
+    }
+
+    try {
+      const settings = await webSettingsStore.get()
+      const managedDownloadPath = settings.downloadPath.trim()
+      const resolvedPath = path.resolve(targetPath)
+
+      const normalizedBase = path.resolve(managedDownloadPath)
+      const relativePath = path.relative(normalizedBase, resolvedPath)
+      const isWithinBase = relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
+
+      let isWithinEnvBase = false
+      if (process.env.VIDBEE_DOWNLOAD_DIR) {
+        const envBase = path.resolve(process.env.VIDBEE_DOWNLOAD_DIR.trim())
+        const envRelative = path.relative(envBase, resolvedPath)
+        isWithinEnvBase = envRelative !== '' && !envRelative.startsWith('..') && !path.isAbsolute(envRelative)
+      }
+
+      if (!isWithinBase && !isWithinEnvBase) {
+        console.error(`[DOWNLOAD API] Forbidden path. Base: ${normalizedBase}, Target: ${resolvedPath}, Relative: ${relativePath}`)
+        return reply.code(403).send({ message: 'Forbidden path.' })
+      }
+
+      const fileStat = await fsPromises.stat(resolvedPath)
+      if (!fileStat.isFile()) {
+         return reply.code(400).send({ message: 'Not a file.' })
+      }
+
+      const stream = fs.createReadStream(resolvedPath)
+      reply.header('Content-Disposition', `attachment; filename="${encodeURIComponent(path.basename(resolvedPath))}"`)
+      reply.header('Content-Length', fileStat.size)
+      return reply.send(stream)
+    } catch (e) {
+      return reply.code(500).send({ message: 'Failed to stream file.' })
+    }
   })
 
   fastify.get('/events', async (request, reply) => {

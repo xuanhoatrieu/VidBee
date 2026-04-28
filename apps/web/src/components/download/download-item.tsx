@@ -42,6 +42,7 @@ import {
 	Copy,
 	File,
 	FolderOpen,
+	Download,
 	Loader2,
 	RotateCw,
 	Trash2,
@@ -374,6 +375,19 @@ export function DownloadItem({
 	const handleCancel = () => {
 		onCancel?.(download.id);
 	};
+
+	const handleDownloadToDevice = async () => {
+		const currentPath = resolvedFilePath ?? (await findExistingFilePath());
+		if (!currentPath) {
+			toast.error(t("notifications.openFileFailed"));
+			return;
+		}
+
+		const url = `/files/download?path=${encodeURIComponent(currentPath)}`;
+		window.location.assign(url);
+	};
+
+
 
 	const handleRetryDownload = () => {
 		onRetry?.(download);
@@ -926,17 +940,32 @@ export function DownloadItem({
 										</Button>
 									)}
 									{showOpenFolderAction && (
-										<Button
-											className="h-8 w-8 shrink-0 rounded-full"
-											onClick={(event) => {
-												event.stopPropagation();
-												void handleOpenFolder();
-											}}
-											size="icon"
-											variant="ghost"
-										>
-											<FolderOpen className="h-4 w-4" />
-										</Button>
+										<>
+											<Button
+												className="h-8 w-8 shrink-0 rounded-full"
+												onClick={(event) => {
+													event.stopPropagation();
+													void handleOpenFolder();
+												}}
+												size="icon"
+												variant="ghost"
+												title={t("history.openFileLocation")}
+											>
+												<FolderOpen className="h-4 w-4" />
+											</Button>
+											<Button
+												className="h-8 w-8 shrink-0 rounded-full"
+												onClick={(event) => {
+													event.stopPropagation();
+													void handleDownloadToDevice();
+												}}
+												size="icon"
+												variant="ghost"
+												title="Tải về máy"
+											>
+												<Download className="h-4 w-4" />
+											</Button>
+										</>
 									)}
 									{isInProgressStatus && (
 										<Button
@@ -1125,6 +1154,15 @@ export function DownloadItem({
 							{t("history.openFileLocation")}
 						</ContextMenuItem>
 						<ContextMenuItem
+							disabled={!showOpenFolderAction}
+							onClick={() => {
+								void handleDownloadToDevice();
+							}}
+						>
+							<Download className="h-4 w-4" />
+							Tải về máy
+						</ContextMenuItem>
+						<ContextMenuItem
 							disabled={!canCopyLink}
 							onClick={() => void handleCopyLink()}
 						>
@@ -1180,6 +1218,15 @@ export function DownloadItem({
 						>
 							<FolderOpen className="h-4 w-4" />
 							{t("history.openFileLocation")}
+						</ContextMenuItem>
+						<ContextMenuItem
+							disabled={!showOpenFolderAction}
+							onClick={() => {
+								void handleDownloadToDevice();
+							}}
+						>
+							<Download className="h-4 w-4" />
+							Tải về máy
 						</ContextMenuItem>
 						<ContextMenuItem
 							disabled={!canCopyLink}

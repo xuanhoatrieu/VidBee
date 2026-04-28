@@ -1,0 +1,54 @@
+{
+  "modules": {
+    "download": {
+      "description": "Core download functionality (single video + playlist)",
+      "features": [
+        {
+          "name": "Per-entry quality selection for playlist",
+          "status": "done",
+          "files": [
+            "apps/web/src/components/download/playlist-download.tsx",
+            "apps/web/src/components/download/download-dialog.tsx",
+            "packages/downloader-core/src/types.ts",
+            "packages/downloader-core/src/downloader-core.ts"
+          ],
+          "description": "Dropdown per video in playlist to override global quality (Best 4K+, 1080p, 720p, 480p, 360p)"
+        },
+        {
+          "name": "Default 1080p quality",
+          "status": "done",
+          "files": [
+            "apps/web/src/lib/download-format-preferences.ts",
+            "apps/web/src/lib/web-settings.ts"
+          ],
+          "description": "Changed default oneClickQuality from 'best' to 'good' (1080p cap)"
+        },
+        {
+          "name": "Force MP4 output",
+          "status": "done",
+          "files": [
+            "packages/downloader-core/src/yt-dlp-args.ts"
+          ],
+          "description": "Added --merge-output-format mp4 and --remux-video mp4 for all video downloads"
+        },
+        {
+          "name": "Hydration fix for ON/OFF badge",
+          "status": "done",
+          "files": [
+            "packages/ui/src/components/ui/download-dialog-layout.tsx"
+          ],
+          "description": "suppressHydrationWarning on localStorage-dependent badge"
+        },
+        {
+          "name": "URL input always visible above download list",
+          "status": "done",
+          "files": [
+            "apps/web/src/components/download/download-dialog.tsx",
+            "apps/web/src/components/pages/download-page.tsx"
+          ],
+          "description": "URL input + Fetch button displayed as persistent block above downloads"
+        }
+      ]
+    }
+  }
+}
